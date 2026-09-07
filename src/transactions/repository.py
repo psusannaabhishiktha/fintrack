@@ -3,7 +3,9 @@ from sqlalchemy.orm import sessionmaker
 import os
 from .models import Base, SharedExpense
 
-DATABASE_URL = os.getenv('FINTRACK_DATABASE_URL', 'sqlite:///./fintrack.db')
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+DATABASE_FILE = os.path.join(PROJECT_ROOT, 'fintrack.db')
+DATABASE_URL = os.getenv('FINTRACK_DATABASE_URL', f'sqlite:///{DATABASE_FILE}')
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if 'sqlite' in DATABASE_URL else {})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

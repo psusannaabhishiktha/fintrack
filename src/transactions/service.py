@@ -64,35 +64,25 @@ class ExpenseService:
             session.close()
 
     def get_user_balances(self, user_id: str):
-        # compute net balances per counterparty
         session = self.Session()
         repo = ExpenseRepository(session)
         try:
             expenses = repo.list_all_expenses()
-            balances = {}  # (user_a, user_b) -> amount user_a owes user_b positive
-            # Simplified model: creator paid total; each participant owes their share to creator.
+            net_by_counterparty = {}
+
             for e in expenses:
                 creator = e.creator
                 for p in e.participants:
-                    uid = p.get('user_id')
-                    amt = float(p.get('amount'))
-                    if uid == creator:
+                    participant_id = p.get('user_id')
+                    amount = float(p.get('amount', 0) or 0)
+                    if participant_id == creator:
                         continue
-                    # uid owes creator amt
-                    balances.setdefault((uid, creator), 0.0)
-                    balances[(uid, creator)] += amt
-            # Now compute net per counterparty for requested user
-            result = {}
-            for (a, b), amt in balances.items():
-                if a == user_id or b == user_id:
-                    other = b if a == user_id else a
-                    # compute net between user_id and other: (other owes user) negative means user owes other
-                    key = other
-                    if (other, user_id) in balances and (user_id, other) in balances:
-                        net = balances.get((user_id, other), 0.0) - balances.get((other, user_id), 0.0)
-                    else:
-                        net = balances.get((user_id, other), 0.0) - balances.get((other, user_id), 0.0)
-                    result[key] = abs(round(net, 2))
-            return result
+
+                    if participant_id == user_id:
+                        net_by_counterparty[creator] = net_by_counterparty.get(creator, 0.0) - amount
+                    elif creator == user_id:
+                        net_by_counterparty[participant_id] = net_by_counterparty.get(participant_id, 0.0) + amount
+
+            return {counterparty: round(abs(amount), 2) for counterparty, amount in net_by_counterparty.items() if abs(amount) > 0}
         finally:
             session.close()
